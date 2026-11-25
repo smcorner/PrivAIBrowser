@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root { --bg: #0b0f17; --card: #141b29; --border: #243047; --text: #eef2ff; --muted: #94a3b8; --accent: #38bdf8; --ok: #22c55e; --err: #ef4444; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 12px; font-size: 14px; }
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .top h2 { font-size: 16px; color: var(--accent); }
+    .close { background: #1e293b; color: #fff; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 600; }
+    .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; padding-bottom: 4px; }
+    .tab { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 7px 12px; border-radius: 8px; white-space: nowrap; font-size: 12.5px; font-weight: 600; }
+    .tab.active { background: #0284c7; color: #fff; border-color: #0284c7; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; margin-top: 8px; }
+    input, select, textarea { width: 100%; background: #0f172a; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px; font-size: 13px; }
+    input[type="checkbox"] { width: auto; margin-right: 8px; }
+    .check-row { display: flex; align-items: center; margin-top: 10px; font-size: 13px; color: var(--text); }
+    textarea { min-height: 80px; font-family: monospace; }
+    button.primary { width: 100%; background: #0284c7; color: #fff; border: none; padding: 11px; border-radius: 9px; font-weight: 700; margin-top: 10px; }
+    button.secondary { width: 100%; background: #1e293b; color: #e2e8f0; border: 1px solid var(--border); padding: 9px; border-radius: 9px; font-weight: 600; margin-top: 8px; }
+    pre { background: #090d14; border: 1px solid var(--border); padding: 10px; border-radius: 8px; font-size: 11.5px; overflow-x: auto; max-height: 200px; margin-top: 8px; color: #cbd5e1; white-space: pre-wrap; }
+    .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,0.15); color: var(--ok); margin-bottom: 6px; }
+    .addon-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h2>PrivAI Control Center</h2>
+    <button class="close" onclick="PrivAIBridge.closePanel()">Back to Page</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('auto', this)">Auto-Fill &amp; Extract</button>
+    <button class="tab" onclick="showTab('addons', this)">AI Add-ons</button>
+    <button class="tab" onclick="showTab('vault', this)">Local Vault</button>
+    <button class="tab" onclick="showTab('settings', this)">Settings</button>
+  </div>
+
+  <!-- Tab 1: Structure-Only Auto-Fill & Extraction -->
+  <div id="tab-auto" class="panel active">
+    <div class="card">
+      <span class="pill">Zero-PII: Only DOM structure sent to AI</span>
+      <button class="primary" onclick="scanAndAutoFill()">AI Map &amp; Fill Form Locally</button>
+      <button class="secondary" onclick="scanSchemaOnly()">Inspect Sanitized Page Schema</button>
+      <pre id="autoStatus">Ready. Tap above to scan the active page structure.</pre>
+    </div>
+    <div class="card">
+      <strong>Structured Data Extraction</strong>
+      <button class="primary" onclick="extractTables()">Extract Page Table to JSON / CSV</button>
+      <button class="secondary" onclick="copyExtracted()">Copy Extracted Output</button>
+      <pre id="extractOutput">No extracted data yet.</pre>
+    </div>
+  </div>
+
+  <!-- Tab 2: AI Add-on Creator & Manager -->
+  <div id="tab-addons" class="panel">
+    <div class="card">
+      <strong>Create Custom Add-on with AI</strong>
+      <label>Describe what this add-on should do on the page</label>
+      <textarea id="addonPrompt" placeholder="e.g., Add a floating button that highlights all rows with 'Pending' and exports them"></textarea>
+      <button class="primary" onclick="generateAddonWithAI()">Generate &amp; Save Add-on</button>
+      <pre id="addonGenStatus">Uses sanitized page structure only.</pre>
+    </div>
+    <div class="card">
+      <strong>Installed Add-ons</strong>
+      <div id="addonList" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Local PII Vault -->
+  <div id="tab-vault" class="panel">
+    <div class="card">
+      <span class="pill">Stored 100% On-Device (Never Sent to AI)</span>
+      <label>Full Name</label><input id="v_name" />
+      <label>Email</label><input id="v_email" />
+      <label>Phone</label><input id="v_phone" />
+      <label>Company / Business</label><input id="v_company" />
+      <label>Tax ID / GSTIN</label><input id="v_tax_id" />
+      <label>Address</label><input id="v_address" />
+      <label>City</label><input id="v_city" />
+      <label>State</label><input id="v_state" />
+      <label>PIN / ZIP</label><input id="v_zip" />
+      <button class="primary" onclick="saveVaultUI()">Save Local Vault</button>
+    </div>
+  </div>
+
+  <!-- Tab 4: AI Provider & Browser Settings -->
+  <div id="tab-settings" class="panel">
+    <div class="card">
+      <strong>Browser Controls</strong>
+      <div class="check-row">
+        <input id="s_trackerBlock" type="checkbox" checked />
+        <span>Block common tracker &amp; ad domains</span>
+      </div>
+      <div class="check-row">
+        <input id="s_bgAudio" type="checkbox" checked />
+        <span>Keep HTML5 audio playing in background</span>
+      </div>
+    </div>
+    <div class="card">
+      <strong>AI Provider</strong>
+      <label>Provider</label>
+      <select id="s_provider">
+        <option value="gemini">Google Gemini API</option>
+        <option value="openai">OpenAI / Compatible API</option>
+        <option value="ollama">Local / Custom Endpoint (No Key)</option>
+      </select>
+      <label>Model</label>
+      <input id="s_model" placeholder="gemini-2.5-flash or gpt-4o-mini" />
+      <label>API Key (Stored Locally)</label>
+      <input id="s_key" type="password" placeholder="Paste API key..." />
+      <label>Custom Endpoint (for OpenAI-compat / Ollama)</label>
+      <input id="s_endpoint" placeholder="http://127.0.0.1:11434/v1/chat/completions" />
+      <button class="primary" onclick="saveSettingsUI()">Save Settings</button>
+    </div>
+  </div>
+
+  <script>
+    let lastExtracted = '';
+
+    function showTab(id, btn) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('tab-' + id).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    window.onPanelOpen = function () {
+      loadVaultUI();
+      loadSettingsUI();
+      renderAddons();
+    };
+
+    function loadVaultUI() {
+      try {
+        const v = JSON.parse(PrivAIBridge.getVault() || '{}');
+        ['name','email','phone','company','tax_id','address','city','state','zip'].forEach(k => {
+          document.getElementById('v_' + k).value = v[k] || '';
+        });
+      } catch (e) {}
+    }
+
+    function saveVaultUI() {
+      const v = {};
+      ['name','email','phone','company','tax_id','address','city','state','zip'].forEach(k => {
+        v[k] = document.getElementById('v_' + k).value.trim();
+      });
+      PrivAIBridge.saveVault(JSON.stringify(v));
+    }
+
+    function loadSettingsUI() {
+      try {
+        const s = JSON.parse(PrivAIBridge.getSettings() || '{}');
+        document.getElementById('s_provider').value = s.provider || 'gemini';
+        document.getElementById('s_model').value = s.model || 'gemini-2.5-flash';
+        document.getElementById('s_key').value = s.apiKey || '';
+        document.getElementById('s_endpoint').value = s.endpoint || '';
+        document.getElementById('s_trackerBlock').checked = s.trackerBlock !== false;
+        document.getElementById('s_bgAudio').checked = s.bgAudio !== false;
+      } catch (e) {}
+    }
+
+    function saveSettingsUI() {
+      const s = {
+        provider: document.getElementById('s_provider').value,
+        model: document.getElementById('s_model').value.trim(),
+        apiKey: document.getElementById('s_key').value.trim(),
+        endpoint: document.getElementById('s_endpoint').value.trim(),
+        trackerBlock: document.getElementById('s_trackerBlock').checked,
+        bgAudio: document.getElementById('s_bgAudio').checked
+      };
+      PrivAIBridge.saveSettings(JSON.stringify(s));
+    }
+
+    function scanSchemaOnly() {
+      window.__cbScan = function (raw) {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        document.getElementById('autoStatus').textContent = JSON.stringify(parsed, null, 2);
+      };
+      PrivAIBridge.scanSanitizedSchema('__cbScan');
+    }
+
+    function scanAndAutoFill() {
+      const status = document.getElementById('autoStatus');
+      status.textContent = 'Scanning sanitized form structure...';
+      window.__cbScanFill = function (raw) {
+        const schema = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const vaultKeys = Object.keys(JSON.parse(PrivAIBridge.getVault() || '{}'));
+        if (!schema.fields || schema.fields.length === 0) {
+          status.textContent = 'No visible form fields found on this page.';
+          return;
+        }
+        status.textContent = 'Asking AI to map ' + schema.fields.length + ' fields (Zero-PII)...';
+        const prompt = 'Map these sanitized HTML form fields to the best matching vault key from: ' + JSON.stringify(vaultKeys) +
+          '. Return ONLY valid JSON object { "css_selector": "vault_key" }. Fields: ' + JSON.stringify(schema.fields);
+
+        window.__cbAiFill = function (resRaw) {
+          try {
+            const res = JSON.parse(resRaw);
+            if (res.error) { status.textContent = 'AI Error: ' + res.error; return; }
+            const clean = res.text.replace(/```json|```/g, '').trim();
+            window.__cbFillDone = function (fillRes) {
+              status.textContent = 'Filled locally: ' + fillRes + '\nMapping: ' + clean;
+            };
+            PrivAIBridge.executeLocalFill(clean, '__cbFillDone');
+          } catch (e) {
+            status.textContent = 'Parse error: ' + e.message;
+          }
+        };
+        PrivAIBridge.callAiApi(prompt, '__cbAiFill');
+      };
+      PrivAIBridge.scanSanitizedSchema('__cbScanFill');
+    }
+
+    function extractTables() {
+      window.__cbExtract = function (raw) {
+        const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        lastExtracted = JSON.stringify(data, null, 2);
+        document.getElementById('extractOutput').textContent = lastExtracted || '[]';
+      };
+      PrivAIBridge.extractStructuredData('{}', '__cbExtract');
+    }
+
+    function copyExtracted() {
+      if (lastExtracted) PrivAIBridge.copyToClipboard(lastExtracted);
+    }
+
+    function generateAddonWithAI() {
+      const req = document.getElementById('addonPrompt').value.trim();
+      const status = document.getElementById('addonGenStatus');
+      if (!req) return;
+      status.textContent = 'Scanning page structure...';
+      window.__cbAddonScan = function (raw) {
+        const schema = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        status.textContent = 'Generating structured add-on with AI...';
+        const prompt = 'Create a browser add-on for this request: "' + req + '". Sanitized page structure: ' +
+          JSON.stringify(schema) + '. Return ONLY valid JSON: {"name":"short title","match":"*://*/*","css":"","js":"// clean vanilla JS"}';
+        window.__cbAddonAi = function (resRaw) {
+          try {
+            const res = JSON.parse(resRaw);
+            if (res.error) { status.textContent = 'Error: ' + res.error; return; }
+            const addon = JSON.parse(res.text.replace(/```json|```/g, '').trim());
+            addon.enabled = true;
+            const list = JSON.parse(PrivAIBridge.getAddons() || '[]');
+            list.push(addon);
+            PrivAIBridge.saveAddons(JSON.stringify(list));
+            renderAddons();
+            if (addon.js) PrivAIBridge.runJsOnPage(addon.js);
+            status.textContent = 'Saved & executed: ' + addon.name;
+          } catch (e) {
+            status.textContent = 'Parse error: ' + e.message;
+          }
+        };
+        PrivAIBridge.callAiApi(prompt, '__cbAddonAi');
+      };
+      PrivAIBridge.scanSanitizedSchema('__cbAddonScan');
+    }
+
+    function renderAddons() {
+      const container = document.getElementById('addonList');
+      const list = JSON.parse(PrivAIBridge.getAddons() || '[]');
+      if (!list.length) { container.innerHTML = '<div style="color:#94a3b8">No custom add-ons yet.</div>'; return; }
+      container.innerHTML = list.map((a, idx) =>
+        `<div class="addon-item">
+          <div><strong>${a.name || 'Addon'}</strong><div style="font-size:11px;color:#94a3b8">${a.match || '*://*/*'}</div></div>
+          <div>
+            <button onclick="toggleAddon(${idx})" style="padding:4px 8px;border-radius:6px;border:none;background:${a.enabled ? '#22c55e' : '#475569'};color:#fff">${a.enabled ? 'ON' : 'OFF'}</button>
+            <button onclick="deleteAddon(${idx})" style="padding:4px 8px;border-radius:6px;border:none;background:#ef4444;color:#fff">Del</button>
+          </div>
+        </div>`
+      ).join('');
+    }
+
+    function toggleAddon(idx) {
+      const list = JSON.parse(PrivAIBridge.getAddons() || '[]');
+      list[idx].enabled = !list[idx].enabled;
+      PrivAIBridge.saveAddons(JSON.stringify(list));
+      renderAddons();
+    }
+
+    function deleteAddon(idx) {
+      const list = JSON.parse(PrivAIBridge.getAddons() || '[]');
+      list.splice(idx, 1);
+      PrivAIBridge.saveAddons(JSON.stringify(list));
+      renderAddons();
+    }
+  </script>
+</body>
+</html>

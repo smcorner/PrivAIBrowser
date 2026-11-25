@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PrivAIBrowser — Download APK</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card: #141b29;
+      --border: #243047;
+      --text: #eef2ff;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent2: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+    h1 { font-size: 26px; margin-bottom: 8px; }
+    p.sub { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 22px; }
+    .btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      text-decoration: none;
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      color: #fff;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 15px 20px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.92; }
+    .btn.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 14px;
+      padding: 11px 16px;
+    }
+    .meta {
+      font-size: 13px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 16px 0;
+      line-height: 1.5;
+    }
+    ul.features {
+      list-style: none;
+      display: grid;
+      gap: 8px;
+      font-size: 13.5px;
+      color: #cbd5e1;
+      margin-top: 14px;
+    }
+    ul.features li::before {
+      content: "✓ ";
+      color: var(--accent2);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="badge">Android APK · Zero-PII AI Browser</span>
+    <h1>PrivAIBrowser</h1>
+    <p class="sub">
+      Privacy-first Android browser with structure-only AI form automation, structured data extraction, background audio, tracker blocking, and an in-browser AI add-on creator.
+    </p>
+
+    <a id="downloadBtn" class="btn" href="#">Checking latest APK release...</a>
+    <a id="releasesBtn" class="btn secondary" href="#">View All GitHub Releases</a>
+
+    <div class="meta" id="releaseMeta">
+      Detecting repository from GitHub Pages URL...
+    </div>
+
+    <ul class="features">
+      <li>Zero-PII Mode: Personal vault never leaves your device</li>
+      <li>Deterministic form auto-fill from sanitized DOM schema</li>
+      <li>1-tap table &amp; page extraction to JSON / CSV</li>
+      <li>In-browser AI Add-on &amp; Userscript creator</li>
+      <li>General tracker/ad-domain blocking &amp; background audio</li>
+      <li>Native Android Download Manager for direct files</li>
+    </ul>
+  </div>
+
+  <script>
+    (function () {
+      const host = window.location.hostname;
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const owner = host.endsWith('.github.io') ? host.replace('.github.io', '') : '';
+      const repo = parts.length > 0 ? parts[0] : '';
+
+      const downloadBtn = document.getElementById('downloadBtn');
+      const releasesBtn = document.getElementById('releasesBtn');
+      const meta = document.getElementById('releaseMeta');
+
+      if (!owner || !repo) {
+        downloadBtn.textContent = 'Open on GitHub Pages to Auto-Link APK';
+        meta.textContent = 'Host this /docs folder via GitHub Pages (Settings -> Pages -> /docs) to automatically link your latest APK release.';
+        return;
+      }
+
+      const directLatestUrl = `https://github.com/${owner}/${repo}/releases/latest/download/PrivAIBrowser.apk`;
+      const allReleasesUrl = `https://github.com/${owner}/${repo}/releases`;
+
+      downloadBtn.href = directLatestUrl;
+      downloadBtn.textContent = 'Download Latest PrivAIBrowser.apk';
+      releasesBtn.href = allReleasesUrl;
+
+      fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`)
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(data => {
+          const apk = (data.assets || []).find(a => a.name.endsWith('.apk'));
+          if (apk) {
+            downloadBtn.href = apk.browser_download_url;
+            const sizeMb = (apk.size / (1024 * 1024)).toFixed(2);
+            meta.innerHTML = `<strong>Latest Release:</strong> ${data.tag_name}<br><strong>File:</strong> ${apk.name} (${sizeMb} MB)<br><strong>Published:</strong> ${new Date(data.published_at).toLocaleString()}`;
+          } else {
+            meta.textContent = `Release ${data.tag_name} found. Tap Download above or check Releases.`;
+          }
+        })
+        .catch(() => {
+          meta.textContent = `Repository: ${owner}/${repo}. If no release appears yet, run the "Build & Release Android APK" workflow in the GitHub Actions tab.`;
+        });
+    })();
+  </script>
+</body>
+</html>
